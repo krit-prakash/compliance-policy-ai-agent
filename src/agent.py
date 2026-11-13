@@ -1,11 +1,10 @@
 from typing import TypedDict, List
 from langgraph.graph import StateGraph, END
 from langchain_groq import ChatGroq
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_cohere import CohereEmbeddings
 from qdrant_client import QdrantClient
 from src.config import settings
 
-# Define the State (the memory of the agent)
 class AgentState(TypedDict):
     question: str
     tenant_id: str
@@ -13,21 +12,20 @@ class AgentState(TypedDict):
     generation: str
     retry_count: int
 
-# Initialize clients
 llm = ChatGroq(api_key=settings.GROQ_API_KEY, model_name=settings.GROQ_MODEL)
-embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+embeddings = CohereEmbeddings(
+    cohere_api_key=settings.COHERE_API_KEY,
+    model="embed-english-light-v3.0"
+)
 qdrant = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY)
 
-# Node 1: Retrieval
 def retrieve_docs(state: AgentState):
     print("---RETRIEVING DOCS---")
     question = state["question"]
     tenant = state["tenant_id"]
     
-    # Embed the question
     query_vector = embeddings.embed_query(question)
     
-    # Search Qdrant (Strict tenant isolation!)
     search_result = qdrant.query_points(
         collection_name=settings.COLLECTION_NAME,
         query=query_vector,
@@ -41,8 +39,7 @@ def retrieve_docs(state: AgentState):
     
     docs = [hit.payload["text"] for hit in search_result.points]
     return {"retrieved_docs": docs}
-        
-# Node 2: Generation (with Guardrails)
+
 def generate_answer(state: AgentState):
     print("---GENERATING ANSWER---")
     question = state["question"]
@@ -64,13 +61,11 @@ def generate_answer(state: AgentState):
     response = llm.invoke(prompt)
     return {"generation": response.content, "retry_count": retry + 1}
 
-# Node 3: Evaluate Faithfulness (The Hallucination Guard)
 def evaluate_faithfulness(state: AgentState):
     print("---EVALUATING FAITHFULNESS---")
     generation = state["generation"]
     docs = state["retrieved_docs"]
     
-    # If it couldn't find docs, don't evaluate, just end.
     if not docs:
         return {"generation": "I cannot answer this based on the provided documents."}
         
@@ -92,15 +87,10 @@ def evaluate_faithfulness(state: AgentState):
     print("Answer passed evaluation.")
     return state
 
-# Node 4: Conditional Logic
 def should_retry(state: AgentState):
-    if state.get("retry_count", 0) >= 1:
-        return "end"
-    return "end" # We keep it simple for now, could loop back to generate
+    return "end"
 
-# Build the Graph
 workflow = StateGraph(AgentState)
-
 workflow.add_node("retrieve", retrieve_docs)
 workflow.add_node("generate", generate_answer)
 workflow.add_node("evaluate", evaluate_faithfulness)
