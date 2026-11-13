@@ -1,0 +1,13 @@
+ACME Corporation - Employee Handbook (2026)
+
+Section 1: Remote Work
+Employees are allowed to work remotely up to 3 days a week. 
+Tuesday and Thursday are mandatory in-office days for all engineering staff.
+
+Section 2: Equipment
+The company provides a $1000 stipend for home office equipment. 
+Purchases must be approved by the IT department before reimbursement.
+
+Section 3: Expenses
+All travel expenses must be submitted within 30 days of the trip. 
+Receipts are required for any expense over $25.
