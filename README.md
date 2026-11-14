@@ -1,50 +1,40 @@
-\# Enterprise Multi-Tenant Compliance AI Agent
+# 🏢 Enterprise Multi-Tenant Compliance AI Agent
 
+![Python](https://img.shields.io/badge/Python-3.12-blue?style=flat-square&logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi)
+![LangGraph](https://img.shields.io/badge/LangGraph-Agentic_Workflow-orange?style=flat-square)
+![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED?style=flat-square&logo=docker)
+![Render](https://img.shields.io/badge/Deploy-Render_Live-success?style=flat-square)
 
+A secure, cloud-native Retrieval-Augmented Generation (RAG) system designed for multi-tenant document Q&A. Built to demonstrate strict data isolation, hallucination prevention, and lightweight cloud deployment.
 
-A cloud-native RAG application built for secure document Q\&A. It uses LangGraph for agentic workflows, Groq for LLM inference, and Qdrant for vector storage. 
+🔗 **[Try the Live API](https://compliance-policy-ai-agent.onrender.com/docs)**
 
+---
 
+## 📖 The Problem
+Standard RAG applications are vulnerable to two major issues in enterprise environments:
+1. **Data Leakage:** Without strict isolation, a user from Tenant A could retrieve data belonging to Tenant B.
+2. **Hallucinations:** LLMs will confidently invent an answer if the retrieved context doesn't contain the truth.
 
-\*\*Live API Endpoint:\*\* https://compliance-policy-ai-agent.onrender.com/docs
+## 💡 The Solution
+This project implements an **Agentic RAG Architecture** using **LangGraph** to solve both problems.
 
-
-
-\## Architecture
-
-\- \*\*FastAPI:\*\* Serves the REST API endpoints.
-
-\- \*\*LangGraph:\*\* Manages the agent state and conditional routing.
-
-\- \*\*Groq (openai/gpt-oss-120b):\*\* Handles generation and evaluation tasks.
-
-\- \*\*Qdrant Cloud:\*\* Stores document embeddings with strict tenant isolation.
-
-\- \*\*Cohere:\*\* Generates embeddings for document chunks and user queries.
-
-\- \*\*Docker:\*\* Containerized for deployment on Render.
-
-
-
-\## Implementation Details
-
-\- \*\*Multi-Tenancy:\*\* Data isolation is enforced at the database level. Every chunk is tagged with a `tenant\_id`, and retrieval queries always filter by this ID. A tenant cannot access another tenant's data.
-
-\- \*\*Hallucination Guardrail:\*\* The LangGraph workflow includes an evaluation node. After the LLM generates an answer, a second prompt verifies if the answer is actually supported by the retrieved context. If it detects a hallucination, it overrides the answer with a safe fallback.
-
-\- \*\*Cloud Deployment Constraints:\*\* Handled the 512MB memory limit on Render's free tier by moving away from local HuggingFace/PyTorch embeddings to Cohere's API, reducing the container size and memory footprint significantly.
-
-
-
-\## Local Setup
-
-1\. Clone the repository.
-
-2\. Create a virtual environment and install dependencies: `pip install -r requirements.txt`
-
-3\. Add your API keys to a `.env` file (`GROQ\_API\_KEY`, `QDRANT\_URL`, `QDRANT\_API\_KEY`, `COHERE\_API\_KEY`).
-
-4\. Run the ingestion script to load a PDF: `python -c "from src.ingest import ingest\_pdf; ingest\_pdf('test\_policy.pdf', tenant\_id='acme\_corp')"`
-
-5\. Start the server: `uvicorn src.api:api --reload`
-
+```text
+[ User Query ] 
+      │
+      ▼
+[ Tenant Filter ] ──(Strict Qdrant Metadata Isolation)──┐
+      │                                                 │
+      ▼                                                 ▼
+[ Retrieve Context ] ──(Cohere Embeddings)──> [ Qdrant Cloud DB ]
+      │
+      ▼
+[ Generate Answer ] ──(Groq / Llama-3)
+      │
+      ▼
+[ 🛡️ Faithfulness Evaluator ] ──(LangGraph Node)
+      │
+      ├─► (FAIL) ──> [ Safe Fallback Response ]
+      │
+      └─► (PASS) ──> [ Deliver Final Answer ]
